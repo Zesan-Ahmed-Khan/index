@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Notes App — Azure Functions</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@500;600&family=Plus+Jakarta+Sans:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --navy:      #1e3d59;
+    --navy-dk:   #152d42;
+    --navy-lt:   #2a5278;
+    --cream:     #f5f0e1;
+    --cream-dk:  #ede7d2;
+    --cream-lt:  #faf8f2;
+    --orange:    #ff6e40;
+    --orange-lt: #ffe4da;
+    --orange-dk: #e85520;
+    --yellow:    #ffc13b;
+    --yellow-lt: #fff3cc;
+    --yellow-dk: #e6a820;
+    --white:     #ffffff;
+    --gray:      #7a6e5f;
+    --gray-lt:   #e8e2d4;
+    --red:       #d63031;
+    --red-lt:    #fdeaea;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    background: var(--cream);
+    color: var(--navy);
+    min-height: 100vh;
+  }
+
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background:
+      radial-gradient(ellipse at 10% 10%, rgba(255,193,59,0.12) 0%, transparent 50%),
+      radial-gradient(ellipse at 90% 90%, rgba(255,110,64,0.10) 0%, transparent 50%);
+    pointer-events: none; z-index: 0;
+  }
+
+  /* ── Header ── */
+  header {
+    background: var(--navy);
+    padding: 0 2rem; height: 66px;
+    display: flex; align-items: center; justify-content: space-between;
+    position: sticky; top: 0; z-index: 100;
+    box-shadow: 0 3px 18px rgba(30,61,89,0.25);
+  }
+
+  .header-left { display: flex; align-items: center; gap: 12px; }
+
+  .logo-icon {
+    width: 36px; height: 36px;
+    background: var(--yellow);
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.15rem;
+  }
+
+  .logo-text {
+    font-family: 'Playfair Display', serif;
+    font-size: 1.4rem; color: var(--cream);
+    letter-spacing: -0.01em;
+  }
+
+  .logo-text span { color: var(--yellow); }
+
+  .api-badge {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.68rem; color: rgba(245,240,225,0.65);
+    background: rgba(255,255,255,0.08);
+    border: 1px solid rgba(255,255,255,0.12);
+    padding: 3px 10px; border-radius: 20px;
+  }
+
+  .status-pill {
+    display: flex; align-items: center; gap: 6px;
+    background: rgba(255,255,255,0.08);
+    border: 1px solid rgba(255,255,255,0.12);
+    padding: 5px 14px; border-radius: 20px;
+    font-size: 0.78rem; color: var(--cream);
+  }
+
+  .status-dot {
+    width: 7px; height: 7px; border-radius: 50%;
+    background: var(--yellow);
+    animation: pulse 2.5s infinite;
+  }
+
+  .status-dot.error { background: var(--orange); animation: none; }
+
+  @keyframes pulse { 0%,100%{opacity:1;}50%{opacity:0.35;} }
+
+  /* ── Main ── */
+  main {
+    max-width: 900px; margin: 0 auto;
+    padding: 2rem 1.5rem;
+    position: relative; z-index: 1;
+  }
+
+  /* Welcome banner */
+  .welcome {
+    background: var(--navy);
+    border-radius: 18px;
+    padding: 1.4rem 1.8rem;
+    margin-bottom: 1.8rem;
+    display: flex; align-items: center;
+    justify-content: space-between; gap: 1rem;
+    box-shadow: 0 4px 18px rgba(30,61,89,0.15);
+    position: relative; overflow: hidden;
+  }
+
+  .welcome::after {
+    content: '';
+    position: absolute; right: -30px; top: -30px;
+    width: 120px; height: 120px;
+    background: rgba(255,193,59,0.12);
+    border-radius: 50%;
+  }
+
+  .welcome-text h2 {
+    font-family: 'Playfair Display', serif;
+    font-size: 1.25rem; color: var(--cream); margin-bottom: 4px;
+  }
+
+  .welcome-text p { font-size: 0.82rem; color: rgba(245,240,225,0.65); }
+  .welcome-emoji { font-size: 2.4rem; z-index: 1; }
+
+  /* Add card */
+  .add-card {
+    background: var(--white);
+    border-radius: 18px; padding: 1.6rem;
+    margin-bottom: 2rem;
+    box-shadow: 0 4px 20px rgba(30,61,89,0.08);
+    border: 1.5px solid var(--gray-lt);
+    position: relative; overflow: hidden;
+  }
+
+  .add-card::after {
+    content: '';
+    position: absolute; top: 0; left: 0; right: 0; height: 4px;
+    background: linear-gradient(90deg, var(--orange), var(--yellow));
+    border-radius: 18px 18px 0 0;
+  }
+
+  .section-label {
+    font-size: 0.72rem; font-weight: 600;
+    color: var(--orange);
+    text-transform: uppercase; letter-spacing: 0.1em;
+    margin-bottom: 1rem;
+    display: flex; align-items: center; gap: 6px;
+  }
+
+  .section-label::before {
+    content: ''; width: 16px; height: 2px;
+    background: var(--orange); border-radius: 2px;
+  }
+
+  input[type="text"], textarea {
+    width: 100%; padding: 11px 16px;
+    border: 1.5px solid var(--gray-lt);
+    border-radius: 10px;
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    font-size: 0.9rem; color: var(--navy);
+    background: var(--cream-lt);
+    transition: all 0.2s; outline: none;
+    margin-bottom: 10px;
+  }
+
+  input[type="text"]:focus, textarea:focus {
+    border-color: var(--orange);
+    background: var(--white);
+    box-shadow: 0 0 0 3px rgba(255,110,64,0.1);
+  }
+
+  input::placeholder, textarea::placeholder { color: #b5a99a; }
+  textarea { resize: vertical; min-height: 85px; margin-bottom: 0; }
+
+  .form-actions { display: flex; align-items: center; gap: 12px; margin-top: 12px; }
+
+  .btn-add {
+    background: linear-gradient(135deg, var(--orange), var(--orange-dk));
+    color: var(--white); border: none; border-radius: 10px;
+    padding: 10px 26px;
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    font-size: 0.88rem; font-weight: 600;
+    cursor: pointer; transition: all 0.2s;
+    display: flex; align-items: center; gap: 7px;
+    box-shadow: 0 3px 12px rgba(255,110,64,0.4);
+  }
+
+  .btn-add:hover { transform: translateY(-1px); box-shadow: 0 6px 18px rgba(255,110,64,0.45); }
+  .btn-add:active { transform: translateY(0); }
+  .btn-add:disabled { background: var(--gray-lt); color: var(--gray); cursor: not-allowed; transform: none; box-shadow: none; }
+
+  .saving-text { font-size: 0.82rem; color: var(--gray); }
+
+  /* Notes header */
+  .notes-header {
+    display: flex; align-items: center;
+    justify-content: space-between; margin-bottom: 1.2rem;
+  }
+
+  .notes-title {
+    font-family: 'Playfair Display', serif;
+    font-size: 1.3rem; color: var(--navy);
+  }
+
+  .notes-title span {
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    font-size: 0.85rem; font-weight: 500;
+    color: var(--gray); margin-left: 6px;
+  }
+
+  .refresh-btn {
+    background: var(--cream-dk);
+    border: 1.5px solid var(--gray-lt);
+    border-radius: 8px; padding: 6px 14px;
+    font-size: 0.8rem; font-weight: 500;
+    color: var(--navy-lt); cursor: pointer;
+    transition: all 0.15s;
+    font-family: 'Plus Jakarta Sans', sans-serif;
+  }
+
+  .refresh-btn:hover { border-color: var(--navy); color: var(--navy); }
+
+  /* Notes grid */
+  .notes-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(255px, 1fr));
+    gap: 14px;
+  }
+
+  .note-card {
+    border-radius: 14px; padding: 1.2rem;
+    border: 1.5px solid transparent;
+    box-shadow: 0 2px 10px rgba(30,61,89,0.07);
+    transition: transform 0.15s, box-shadow 0.15s;
+    animation: fadeUp 0.3s ease;
+  }
+
+  @keyframes fadeUp { from{opacity:0;transform:translateY(10px);}to{opacity:1;transform:translateY(0);} }
+
+  .note-card:hover { transform: translateY(-3px); box-shadow: 0 8px 22px rgba(30,61,89,0.12); }
+
+  /* Rotate between the 4 palette colors as card backgrounds */
+  .note-card:nth-child(4n+1) { background: #f5f0e1; border-color: #e8e0cc; }
+  .note-card:nth-child(4n+2) { background: #fff3cc; border-color: #fde9a0; }
+  .note-card:nth-child(4n+3) { background: #ffe4da; border-color: #ffd0be; }
+  .note-card:nth-child(4n+4) { background: #faf8f2; border-color: #ede7d2; }
+
+  .note-tag {
+    display: inline-block;
+    font-size: 0.65rem; font-weight: 600;
+    text-transform: uppercase; letter-spacing: 0.08em;
+    color: var(--orange); background: var(--orange-lt);
+    padding: 2px 8px; border-radius: 20px; margin-bottom: 8px;
+  }
+
+  .note-title {
+    font-family: 'Playfair Display', serif;
+    font-size: 1rem; color: var(--navy);
+    margin-bottom: 7px; line-height: 1.3;
+  }
+
+  .note-body {
+    font-size: 0.84rem; color: var(--gray);
+    line-height: 1.55; margin-bottom: 14px;
+  }
+
+  .note-footer {
+    display: flex; align-items: center;
+    justify-content: space-between;
+    padding-top: 10px;
+    border-top: 1px solid rgba(30,61,89,0.08);
+  }
+
+  .note-time {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.68rem; color: #b5a99a;
+  }
+
+  .delete-btn {
+    background: none; border: 1px solid var(--gray-lt);
+    border-radius: 6px; padding: 3px 10px;
+    font-size: 0.75rem; font-weight: 500;
+    color: var(--gray); cursor: pointer; transition: all 0.15s;
+    font-family: 'Plus Jakarta Sans', sans-serif;
+  }
+
+  .delete-btn:hover { background: var(--red-lt); border-color: var(--red); color: var(--red); }
+
+  .empty-state {
+    grid-column: 1/-1; text-align: center;
+    padding: 3rem 1rem; background: var(--white);
+    border-radius: 16px; border: 2px dashed var(--gray-lt);
+  }
+
+  .empty-icon { font-size: 3rem; margin-bottom: 0.8rem; }
+  .empty-state h3 { font-family:'Playfair Display',serif; color:var(--navy-lt); margin-bottom:6px; }
+  .empty-state p { font-size:0.85rem; color:var(--gray); }
+
+  .loading {
+    grid-column: 1/-1; text-align: center;
+    padding: 2.5rem; font-size: 0.88rem; color: var(--gray);
+  }
+
+  /* Footer */
+  .api-footer {
+    margin-top: 2.5rem; padding: 1rem 1.4rem;
+    background: var(--navy); border-radius: 14px;
+    display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+  }
+
+  .api-footer-label {
+    font-size: 0.7rem; font-weight: 600; color: var(--yellow);
+    text-transform: uppercase; letter-spacing: 0.08em; white-space: nowrap;
+  }
+
+  .api-footer-url {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.7rem; color: rgba(245,240,225,0.55);
+    word-break: break-all; flex: 1;
+  }
+
+  /* Toast */
+  .toast {
+    position: fixed; bottom: 28px; right: 24px;
+    padding: 12px 20px; border-radius: 12px;
+    font-size: 0.85rem; font-weight: 500; color: var(--white);
+    box-shadow: 0 6px 20px rgba(0,0,0,0.18);
+    transform: translateY(80px); opacity: 0;
+    transition: all 0.35s cubic-bezier(0.34,1.56,0.64,1);
+    z-index: 1000;
+  }
+
+  .toast.show { transform: translateY(0); opacity: 1; }
+  .toast.success { background: linear-gradient(135deg, var(--navy-lt), var(--navy-dk)); }
+  .toast.error { background: linear-gradient(135deg, var(--orange), var(--orange-dk)); }
+
+  @media (max-width:580px) {
+    .notes-grid { grid-template-columns: 1fr; }
+    .welcome { flex-direction: column; text-align: center; }
+    .api-badge { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-left">
+    <div class="logo-icon">📝</div>
+    <span class="logo-text">Notes<span>App</span></span>
+    <span class="api-badge">Azure Functions · Cosmos DB</span>
+  </div>
+  <div class="status-pill">
+    <div class="status-dot" id="statusDot"></div>
+    <span id="statusText">Connecting...</span>
+  </div>
+</header>
+
+<main>
+  <div class="welcome">
+    <div class="welcome-text">
+      <h2>Simple Notes API</h2>
+      <p>Powered by Azure Functions (Python) + Cosmos DB — serverless &amp; live on the cloud ☁️</p>
+    </div>
+    <div class="welcome-emoji">🚀</div>
+  </div>
+
+  <div class="add-card">
+    <div class="section-label">New Note</div>
+    <input type="text" id="titleInput" placeholder="Give your note a title..." />
+    <textarea id="bodyInput" placeholder="Write something..."></textarea>
+    <div class="form-actions">
+      <button class="btn-add" id="addBtn" onclick="addNote()">✦ Add Note</button>
+      <span class="saving-text" id="addStatus"></span>
+    </div>
+  </div>
+
+  <div class="notes-header">
+    <div class="notes-title">All Notes <span id="noteCount"></span></div>
+    <button class="refresh-btn" onclick="loadNotes()">↻ Refresh</button>
+  </div>
+
+  <div class="notes-grid" id="notesGrid">
+    <div class="loading">Loading notes from Azure...</div>
+  </div>
+
+  <div class="api-footer">
+    <span class="api-footer-label">Live API</span>
+    <span class="api-footer-url" id="apiUrl"></span>
+  </div>
+</main>
+
+<div class="toast" id="toast"></div>
+
+<script>
+  const API = 'https://notesapi-zesan-gre3encuhcfkead3.koreacentral-01.azurewebsites.net/api';
+  document.getElementById('apiUrl').textContent = API + '/notes';
+
+  function showToast(msg, type='success') {
+    const t = document.getElementById('toast');
+    t.textContent = msg; t.className = `toast ${type} show`;
+    setTimeout(() => t.classList.remove('show'), 3000);
+  }
+
+  function setStatus(ok) {
+    document.getElementById('statusDot').className = 'status-dot'+(ok?'':' error');
+    document.getElementById('statusText').textContent = ok ? 'API Online' : 'API Offline';
+  }
+
+  function formatDate(iso) {
+    try { return new Date(iso).toLocaleString('en-US',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}); }
+    catch { return ''; }
+  }
+
+  function escapeHtml(str) {
+    return String(str||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  async function loadNotes() {
+    const grid = document.getElementById('notesGrid');
+    grid.innerHTML = '<div class="loading">☁️ Loading from Azure Cosmos DB...</div>';
+    try {
+      const res = await fetch(`${API}/notes`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const notes = await res.json();
+      setStatus(true);
+      document.getElementById('noteCount').textContent = `— ${notes.length} note${notes.length!==1?'s':''}`;
+      if (!notes.length) {
+        grid.innerHTML = `<div class="empty-state"><div class="empty-icon">📄</div><h3>No notes yet</h3><p>Add your first note above!</p></div>`;
+        return;
+      }
+      notes.sort((a,b) => new Date(b.created)-new Date(a.created));
+      grid.innerHTML = notes.map(n => `
+        <div class="note-card" id="note-${n.id}">
+          <div class="note-tag">note</div>
+          <div class="note-title">${escapeHtml(n.title||'Untitled')}</div>
+          ${n.body?`<div class="note-body">${escapeHtml(n.body)}</div>`:''}
+          <div class="note-footer">
+            <span class="note-time">${formatDate(n.created)}</span>
+            <button class="delete-btn" onclick="deleteNote('${n.id}')">✕ Delete</button>
+          </div>
+        </div>`).join('');
+    } catch(err) {
+      setStatus(false);
+      grid.innerHTML = `<div class="empty-state"><div class="empty-icon">⚠️</div><h3>Connection Error</h3><p>${err.message}</p></div>`;
+    }
+  }
+
+  async function addNote() {
+    const title = document.getElementById('titleInput').value.trim();
+    const body  = document.getElementById('bodyInput').value.trim();
+    if (!title) { showToast('Please enter a title!','error'); document.getElementById('titleInput').focus(); return; }
+    const btn = document.getElementById('addBtn');
+    const st  = document.getElementById('addStatus');
+    btn.disabled=true; btn.textContent='Saving...'; st.textContent='Sending to Azure...';
+    try {
+      const res = await fetch(`${API}/notes`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({title,body})});
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      document.getElementById('titleInput').value='';
+      document.getElementById('bodyInput').value='';
+      st.textContent='';
+      showToast('✓ Note saved to Cosmos DB!');
+      loadNotes();
+    } catch(err) {
+      showToast('Failed: '+err.message,'error'); st.textContent='';
+    } finally {
+      btn.disabled=false; btn.textContent='✦ Add Note';
+    }
+  }
+
+  async function deleteNote(id) {
+    if (!confirm('Delete this note?')) return;
+    const card = document.getElementById(`note-${id}`);
+    if (card) { card.style.opacity='0.4'; card.style.pointerEvents='none'; }
+    try {
+      const res = await fetch(`${API}/notes/${id}`,{method:'DELETE'});
+      if (res.status===204) { showToast('Note deleted!'); loadNotes(); }
+      else throw new Error(`HTTP ${res.status}`);
+    } catch(err) {
+      showToast('Delete failed: '+err.message,'error');
+      if (card) { card.style.opacity='1'; card.style.pointerEvents='auto'; }
+    }
+  }
+
+  document.getElementById('titleInput').addEventListener('keydown', e => {
+    if (e.key==='Enter') document.getElementById('bodyInput').focus();
+  });
+
+  loadNotes();
+</script>
+</body>
+</html>
