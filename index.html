@@ -463,7 +463,7 @@
     const st  = document.getElementById('addStatus');
     btn.disabled=true; btn.textContent='Saving...'; st.textContent='Sending to Azure...';
     try {
-      const res = await fetch(`${API}/notes`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({title,body})});
+      const res = await fetch(`${API}/create-note`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({title,body})});
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       document.getElementById('titleInput').value='';
       document.getElementById('bodyInput').value='';
